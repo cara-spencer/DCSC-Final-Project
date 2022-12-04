@@ -49,7 +49,10 @@ def log_info(message):
 app = Flask(__name__)
 
 @app.route('/apiv1/separate/', methods=['POST'])
-def separate():
+def separate(): ###Change to getsurvey
+   #establish creds using the user's api token and datacenter they enter
+   #request to qualtrics api 
+   #print the list of surveys in qualtrics so user can copy paste into cleansurvey
     log_debug('in separate method')
     data = json.loads(request.data.decode('utf-8'))
     mp3 = base64.b64decode(data['mp3'])
@@ -71,7 +74,10 @@ def separate():
 
 
 @app.route('/apiv1/queue/', methods=['GET'])
-def queue():
+def queue(): ## cleansurvey
+    #establish creds
+    # fetch survey using user input
+    #if statements for each cleaning method based on if it was included in the cleansurvey request
     queue= []
     log_debug('in queue method')
     for i in range(0, redisClient.llen('toWorker')):
@@ -83,16 +89,12 @@ def queue():
 
 
 @app.route('/apiv1/track/<string:songhash>/<int:track>', methods=['GET'])
-def track(songhash, track):
+def track(songhash, track): # progress logs
+  #checks minio
     response={'track': track,
             'songhash': songhash}
     return response
 
-@app.route('/apiv1/remove/<string:songhash>/<int:track>', methods=['DELETE'])
-def delete(songhash, track):
-    response={'track': track,
-            'songhash': songhash}
-    return response
 
 #start flask
 app.run(host="0.0.0.0",port=5000)

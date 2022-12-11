@@ -1,3 +1,36 @@
+# #lets try the method from this page: https://api.qualtrics.com/ZG9jOjg3NjYzMg-api-key-authentication
+# import urllib
+# from urllib import request #default module for Python 3.X
+
+# url = 'https://sjc1.qualtrics.com/API/v3/:collection'
+# header = {'X-API-TOKEN': 'zI0snlFFi3ym5HCb8aiax8zPjfNr8CuP9Xo6CucZ'}
+
+# req = urllib.request.Request(url,None,header) #generating the request object
+
+# handler = urllib.request.urlopen(req) #running the request object
+
+# print(handler.status) #print status code
+# print(handler.reason)
+
+
+#### let's try this method: https://api.qualtrics.com/2c55b7ff8b0c7-list-surveys
+# import http.client
+
+# conn = http.client.HTTPSConnection("sjc1.qualtrics.com")
+
+# headers = {
+#     'Content-Type': "application/json",
+#     'X-API-TOKEN': "zI0snlFFi3ym5HCb8aiax8zPjfNr8CuP9Xo6CucZ"
+#     }
+
+# conn.request("GET", "/API/v3/surveys?offset=0", headers=headers)
+
+# res = conn.getresponse()
+# data = res.read()
+
+# print(data.decode("utf-8"))
+
+
 ####Let's try OAuth from this page: https://api.qualtrics.com/24d63382c3a88-api-quick-start
 
 import http.client
@@ -23,7 +56,6 @@ headers['Authorization'] = 'Basic {0}'.format(authStr)
 conn.request("POST", "/oauth2/token", body, headers)
 res = conn.getresponse()
 data = res.read()
-
 print(data.decode("utf-8"))
 
 

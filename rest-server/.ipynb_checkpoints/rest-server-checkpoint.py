@@ -46,23 +46,41 @@ def get_mongo_collection():
 
 app = Flask(__name__)
 
-# @app.route('/apiv1/getsurvey/', methods=['GET'])
-# def getsurvey(): ###Change to getsurvey
-#    #establish creds using the user's api token and datacenter they enter
-#     from QualtricsAPI.Setup import Credentials
-#     #Create an instance of Credentials
-#     c = Credentials()
-#     token = request.args.get("token")
-#     data_center = request.args.get("data_center")
-#     directory_id = request.args.get("directory_id")
-#     c.qualtrics_api_credentials(token='token',data_center='dc',directory_id='d_id')
-#    #request to qualtrics api
-#
-#     #Create an instance
-#     r = Responses()
-#
-#     #Call the method
-#     df = r.get_questions(survey_id='SV_AFakeSurveyID')
+@app.route('/apiv1/getsurvey/', methods=['GET'])
+def getsurvey(): 
+   #establish creds using the user's api token and datacenter they enter
+    from QualtricsAPI.Setup import Credentials
+    #Create an instance of Credentials
+    c = Credentials()
+    token = request.args.get("token")
+    data_center = request.args.get("data_center")
+    directory_id = request.args.get("directory_id")
+    c.qualtrics_api_credentials(token='token',data_center='dc',directory_id='d_id')
+   #request to qualtrics api
+
+    #Create an instance
+    r = Responses()
+
+    #Call the method
+    df = r.get_questions(survey_id='SV_AFakeSurveyID')
+    
+#### let's try this method: https://api.qualtrics.com/2c55b7ff8b0c7-list-surveys
+# import http.client
+
+# conn = http.client.HTTPSConnection("sjc1.qualtrics.com")
+
+# headers = {
+#     'Content-Type': "application/json",
+#     'X-API-TOKEN': "zI0snlFFi3ym5HCb8aiax8zPjfNr8CuP9Xo6CucZ"
+#     }
+
+# conn.request("GET", "/API/v3/surveys?offset=0", headers=headers)
+
+# res = conn.getresponse()
+# data = res.read()
+
+# print(data.decode("utf-8"))
+
 #
 #    #print the list of surveys in qualtrics so user can copy paste into cleansurvey
 #     # log_debug('in separate method')

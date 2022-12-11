@@ -169,10 +169,10 @@ def cleanSurvey(survey_id):
     # Apply cleaning methods.
     for method in cleaning_methods:
         if method == 'no_nan':
-            # Emily's code
+            survey_df = no_nan(survey_df)
             continue
         elif method == 'no_test':
-            # Emily's code
+            survey_df = no_test(survey_df)
             continue
         elif method == 'tidy_demo':
             survey_df = tidy_demo(survey_df)
@@ -227,6 +227,17 @@ def create_qualtrics_credentials(args):
     c = Credentials()
     c.qualtrics_api_credentials(token=args.get('token'), data_center=args.get('datacenter'),
                                 directory_id=args.get('directory_id'))
+    
+#remove NaN values from entire survey    
+def no_nan(survey_df):
+    survey_df = survey_df.dropna(survey_df)
+    return survey_df
+
+#remove test response from 'status' column
+def no_test(survey_df):
+    survey_df = survey_df.drop((survey_df["Status"] == 2), axis=1) 
+    return survey_df
+    
 
 #remove all metadata columns except survey duration, recorded date and recorded id
 def tidy_demo(survey_df):

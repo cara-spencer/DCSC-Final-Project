@@ -45,8 +45,17 @@ def get_mongo_collection():
 
 app = Flask(__name__)
 
+get_survey_args = ['datacenter', 'token', 'directory_id']
 @app.route('/apiv1/getsurvey/', methods=['GET'])
-def getsurvey(): 
+def getsurvey():
+    # Validate.
+    args = request.args
+    args = args.to_dict()
+    for k, v in args.items():
+        if k not in get_survey_args:
+            return 'Bad Argument', 400
+    if len(args) != 3:
+        return 'Missing Argument', 400
    #establish creds using the user's api token and datacenter they enter
     from QualtricsAPI.Setup import Credentials
     #Create an instance of Credentials
@@ -80,60 +89,7 @@ def getsurvey():
 
 # print(data.decode("utf-8"))
 
-
-
-# @app.route('/apiv1/cleansurvey/', methods=['POST'])
-# def cleansurvey(): ## cleansurvey
-#      #establish creds using the user's api token and datacenter they enter
-#     from QualtricsAPI.Setup import Credentials
-#     #Create an instance of Credentials
-#     c = Credentials()
-#     #Call the qualtrics_api_credentials() method
-#     c.qualtrics_api_credentials(token='Your API Token',data_center='Your Data Center',directory_id='Your Directory ID')
-#
-#     # fetch survey using user input
-#     #if statements for each cleaning method based on if it was included in the cleansurvey request
-#     # queue= []
-#     # log_debug('in queue method')
-#     # for i in range(0, redisClient.llen('toWorker')):
-#     #     queue.append(str(redisClient.lindex('toWorker',i).decode('utf-8')))
-#     # response= {'queue': queue}
-#     # response_pickled = jsonpickle.encode(response)
-#     # # log_info('queue info') fix later
-#     # return response_pickled
-
-
-get_survey_args = ['datacenter', 'token', 'directory_id']
-
-
-@app.route('/getSurveys', methods=['GET'])
-def getSurvey():
-    # Validate.
-    args = request.args
-    args = args.to_dict()
-    for k, v in args.items():
-        if k not in get_survey_args:
-            return 'Bad Argument', 400
-    if len(args) != 3:
-        return 'Missing Argument', 400
-
-    # create_qualtrics_credentials(args)
-    # survey_df = r.get(survey=survey_id)
-
-    # # Perform Task
-    # try:
-    #     perform_stuff
-    # except QualtricException e: #check if qualtrics THROWS error codes; may need to parse response if not clear
-    #     if e.code == 403:
-    #         return "Qualtrics threw this error! {}".format(e)
-    # except otherex:
-    # except Exception e:
-    # finally:
-
-    # return to user
-    return args
-
-
+##Clean survey method
 clean_survey_args = ['datacenter', 'token', 'directory_id', 'cleaning_methods']
 cleaning_method_options = ['no_nan', 'no_test', 'tidy_demo', 'simple_summary']
 
@@ -164,8 +120,6 @@ def cleanSurvey(survey_id):
             survey_df = no_test(survey_df)
         elif method == 'tidy_demo':
             survey_df = tidy_demo(survey_df)
-        elif method == 'simple_summary':
-            return simple_summary(survey_df)
 
     # Send data to Mongo.
     survey_csv = survey_df.to_csv()
@@ -180,33 +134,34 @@ def cleanSurvey(survey_id):
 
 @app.route('/retrieveMDBSurvey/<string:mongo_document_id>', methods=['GET'])
 def retrieveMDBSurvey(mongo_document_id):
+    # Read MongoDB through pymongo API to retrieve cleaned survey
+    mongo_doc = get_mongo_collection().find_one({"_id": ObjectId(mongo_document_id)})
+
+    # retrieve file from MongoDB and write to a BytesIO object to prepare for sending file to client.
+    ret_bytes = BytesIO()
+    ret_bytes.write(mongo_doc['survey_csv']) #might need encoding='utf-8'
+    ret_bytes.seek(0)
+
+    # Send file to client
+    return send_file(ret_bytes, download_name='cleaned_survey.csv', mimetype='text/csv')
+
+
+@app.route('/simpleSummary', methods=['POST'])
+def simpleSummary():
     # Validate.
     args = request.args
     args = args.to_dict()
-    for k, v in args.items():
-        if k not in clean_survey_args:
-            return 'Bad Argument', 400
     if len(args) != 1:
         return 'Missing Argument', 400
 
-    # Set up before connecting
-    today = datetime.today()
-    today = today.strftime("%m-%d-%Y")
-    _, _, instance_col = set_db()
-    # make an API call to the MongoDB server
-    mongo_docs = instance_col.find()
+    # import local version of survey results
+    data = request.data
+    try:
+        survey_df = pd.read_csv(data)
+    except Exception as e:
+        return "Can't read as CSV", 400
 
-    # Convert the mongo docs to a DataFrame
-    docs = pd.DataFrame(mongo_docs)
-    # Discard the Mongo ID for the documents
-    docs.pop("_id")
-
-    # compute the output file directory and name
-    output_dir = os.path.join('..', '..', 'output_files', 'aws_instance_list', 'csv', '')
-    output_file = os.path.join(output_dir, 'aws-instance-master-list-' + today +'.csv')
-
-    # export MongoDB documents to a CSV file, leaving out the row "labels" (row numbers)
-    docs.to_csv(output_file, ",", index=False) # CSV delimited by commas
+    return simple_summary(survey_df)
 
 
 ##HELPERS

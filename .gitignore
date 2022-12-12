@@ -1,2 +1,2 @@
 # Ignore secrets
-secrets.py
+local_secrets.py

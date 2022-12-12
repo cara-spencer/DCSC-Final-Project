@@ -34,7 +34,7 @@ def get_mongo_collection():
 app = Flask(__name__)
 
 # import local version of survey results
-#survey_df = pd.read_csv('iSAT AICL Survey - Copy2_December 11, 2022_12.37')
+#survey_df = pd.read_csv('iSAT AICL Survey - Copy2_December 11, 2022_12.37.csv')
 
 ##Clean survey method
 clean_survey_args = ['cleaning_methods']
@@ -137,7 +137,8 @@ def simpleSummary():
 
 # remove NaN values from entire survey
 def no_na(survey_df):
-    survey_df = survey_df.dropna()
+    c = survey_df.columns[18:217]
+    survey_df = survey_df.dropna(subset=c, how='any')
     return survey_df
 
 

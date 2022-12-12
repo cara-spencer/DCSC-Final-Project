@@ -1,4 +1,4 @@
-#local-server
+# local-server
 
 
 global MONGO_CLIENT
@@ -6,12 +6,16 @@ import sys
 
 sys.path.append('../DCSC-Final-Project')
 
-from flask import Flask, request
+from flask import Flask, request, send_file
 import pymongo as pymagno
+from bson import ObjectId
 from bson.binary import Binary
 import pandas as pd
+from io import StringIO, BytesIO
+import local_secrets as secrets
 import datetime
 import os
+
 
 def connect_to_mongo():
     global MONGO_CLIENT
@@ -29,37 +33,16 @@ def get_mongo_collection():
 
 app = Flask(__name__)
 
-#import local version of survey results 
-survey_df=pd.read_csv('iSAT AICL Survey - Copy2_December 11, 2022_12.37')
+# import local version of survey results
+#survey_df = pd.read_csv('iSAT AICL Survey - Copy2_December 11, 2022_12.37.csv')
 
-cleaning_method_options = ['no_nan', 'no_test', 'tidy_demo', 'simple_summary']
+##Clean survey method
+clean_survey_args = ['cleaning_methods']
+cleaning_method_options = ['no_na', 'no_test', 'tidy_md', 'simple_summary']
 
 
-    # Apply cleaning methods.
-for method in cleaning_methods:
-    if method == 'no_nan':
-         survey_df = no_nan(survey_df)
-    elif method == 'no_test':
-        survey_df = no_test(survey_df)
-    elif method == 'tidy_demo':
-        survey_df = tidy_demo(survey_df)
-    elif method == 'simple_summary':
-        survey_df = simple_summary(survey_df)
-
-    # Send data to Mongo.
-    survey_csv = survey_df.to_csv()
-    mongo_entry = {'survey_id': survey_id, 'survey_csv': Binary(survey_csv)}
-    mongo_result = get_mongo_collection().insert_one(mongo_entry)
-
-    # # Return mongo result to user.
-    # if not mongo_result.acknowledged:
-    #     return 'Mongo error', 400
-    # else:
-    #     return {"mongo_document_id": mongo_result.inserted_id}
-
-##Not sure if we need this?
-@app.route('/retrieveMDBSurvey/<string:mongo_document_id>', methods=['GET'])
-def retrieveMDBSurvey(mongo_document_id):
+@app.route('/cleanSurvey', methods=['POST'])
+def cleanSurvey():
     # Validate.
     args = request.args
     args = args.to_dict()
@@ -68,56 +51,120 @@ def retrieveMDBSurvey(mongo_document_id):
             return 'Bad Argument', 400
     if len(args) != 1:
         return 'Missing Argument', 400
+    cleaning_methods = args.get('cleaning_methods').split(',')
+    for method in cleaning_methods:
+        if method not in cleaning_method_options:
+            return 'Valid options for cleaning methods are {}'.format(cleaning_method_options)
 
-    # Set up before connecting
-    today = datetime.today()
-    today = today.strftime("%m-%d-%Y")
-    _, _, instance_col = set_db()
-    # make an API call to the MongoDB server
-    mongo_docs = instance_col.find()
+    # import local version of survey results
+    try:
+        data = request.files['data']
+    except Exception as e:
+        "You must supply the form in the 'data' parameter of the body.", 400
 
-    # Convert the mongo docs to a DataFrame
-    docs = pd.DataFrame(mongo_docs)
-    # Discard the Mongo ID for the documents
-    docs.pop("_id")
+    try:
+        survey_df = pd.read_csv(data)
+    except Exception as e:
+        return "Can't read as csv", 400
 
-    # compute the output file directory and name
-    output_dir = os.path.join('..', '..', 'output_files', 'aws_instance_list', 'csv', '')
-    output_file = os.path.join(output_dir, 'aws-instance-master-list-' + today +'.csv')
+    print(survey_df.head())
 
-    # export MongoDB documents to a CSV file, leaving out the row "labels" (row numbers)
-    docs.to_csv(output_file, ",", index=False) # CSV delimited by commas
+    # Apply cleaning methods.
+    for method in cleaning_methods:
+        if method == 'no_na':
+            survey_df = no_na(survey_df)
+            print("Done dropping rows with NAs")
+            print(survey_df.head())
+        elif method == 'no_test':
+            survey_df = no_test(survey_df)
+            print("Done dropping tests")
+            print(survey_df.head())
+        elif method == 'tidy_md':
+            survey_df = tidy_md(survey_df)
+            print("Done tidying the metadata")
+            print(survey_df.head())
+    print("Done cleaning")
+
+    # Send data to Mongo.
+    survey_csv = survey_df.to_csv()
+    print("Made survey dataframe into csv")
+    mongo_entry = {'survey_csv': Binary(bytes(survey_csv, encoding='utf-8'))}
+    print("Binarized the csv")
+    print(mongo_entry)
+    mongo_result = get_mongo_collection().insert_one(mongo_entry)
+    print("Sent to MongoDB!")
+
+    # Return mongo result to user.
+    if not mongo_result.acknowledged:
+        return 'Mongo error', 400
+    else:
+        return {"mongo_document_id": str(mongo_result.inserted_id)}
+
+
+@app.route('/retrieveMDBSurvey/<string:mongo_document_id>', methods=['GET'])
+def retrieveMDBSurvey(mongo_document_id):
+    # Read MongoDB through pymongo API to retrieve cleaned survey
+    mongo_doc = get_mongo_collection().find_one({"_id": ObjectId(mongo_document_id)})
+
+    # retrieve file from MongoDB and write to a BytesIO object to prepare for sending file to client.
+    ret_bytes = BytesIO()
+    ret_bytes.write(mongo_doc['survey_csv']) #might need encoding='utf-8'
+    ret_bytes.seek(0)
+
+    # Send file to client
+    return send_file(ret_bytes, download_name='cleaned_survey.csv', mimetype='text/csv')
+
+
+@app.route('/simpleSummary', methods=['POST'])
+def simpleSummary():
+    # Validate.
+    args = request.args
+    args = args.to_dict()
+    if len(args) != 1:
+        return 'Missing Argument', 400
+
+    # import local version of survey results
+    data = request.data
+    try:
+        survey_df = pd.read_csv(data)
+    except Exception as e:
+        return "Can't read as CSV", 400
+
+    return simple_summary(survey_df)
 
 
 ##HELPERS
-    
-#remove NaN values from entire survey    
-def no_nan(survey_df):
-    survey_df = survey_df.dropna(survey_df)
+
+# remove NaN values from entire survey
+def no_na(survey_df):
+    c = survey_df.columns[18:217]
+    survey_df = survey_df.dropna(subset=c, how='any')
     return survey_df
 
-#remove test response from 'status' column
+
+# remove test response from 'status' column
 def no_test(survey_df):
-    survey_df = survey_df.drop((survey_df["Status"] == 2), axis=1) 
-    return survey_df
-    
-
-#remove all metadata columns except survey duration, recorded date and recorded id
-def tidy_demo(survey_df):
-    survey_df = survey_df.drop(survey_df.columns[0:5, 7, 10:17],axis = 1)
+    survey_df = survey_df.drop((survey_df["Status"] == 2), axis=1)
     return survey_df
 
-#retuns date range, number of rows (responses), any with finish code 0, avg duration
+
+# remove all metadata columns except survey duration, recorded date and recorded id
+def tidy_md(survey_df):
+    survey_df = survey_df.drop(survey_df.columns[0:5, 7, 10:17], axis=1)
+    return survey_df
+
+
+# retuns date range, number of rows (responses), any with finish code 0, avg duration
 def simple_summary(survey_df):
     daterange_first = survey_df['RecordedDate'].iloc[0]  # first element
     daterange_last = survey_df['RecordedDate'].iloc[-1]  # last element
     response_n = len(survey_df.index)
     unfinished_n = (survey_df["Finished"] == 0).sum()
     avgduration = pd.mean(survey_df["Duration (in seconds)"])
-    print("Date range:", daterange_first, ":", daterange_last,
-          "Number of Responses:", response_n,
-          "Number of Unfinished Responses (Finished = F)", unfinished_n,
-          "Average Response Duration:", avgduration)
+    return {"Date_Range": "{}:{}".format(daterange_first, daterange_last),
+          "Number_of_Response": response_n,
+          "Number_of_Unfinished_Responses": unfinished_n,
+          "Average_Response_Duration": avgduration}
 
 
 print('Starting server...')
@@ -127,4 +174,5 @@ get_mongo_collection()
 app.run(host="0.0.0.0", port=5000)
 
 # to test:
-# "localhost:5000/getSurvey?datacenter=ca1&token=123&directory_id=myid"
+# curl -F data=@"C:/Users/caraa/OneDrive/Desktop/gradschool/dcsc/testsurvey.csv" -X POST localhost:5000/cleanSurvey?cleaning_methods=no_nan
+# curl localhost:5000/retrieveMDBSurvey/6396d08b260345aa73278a16 > tmp

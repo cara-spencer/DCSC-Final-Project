@@ -114,12 +114,19 @@ def cleanSurvey(survey_id):
 
     # Apply cleaning methods.
     for method in cleaning_methods:
-        if method == 'no_nan':
-            survey_df = no_nan(survey_df)
+        if method == 'no_na':
+            survey_df = no_na(survey_df)
+            print("Done dropping rows with NAs")
+            print(survey_df.head())
         elif method == 'no_test':
             survey_df = no_test(survey_df)
-        elif method == 'tidy_demo':
-            survey_df = tidy_demo(survey_df)
+            print("Done dropping tests")
+            print(survey_df.head())
+        elif method == 'tidy_md':
+            survey_df = tidy_md(survey_df)
+            print("Done tidying the metadata")
+            print(survey_df.head())
+    print("Done cleaning")
 
     # Send data to Mongo.
     survey_csv = survey_df.to_csv()
@@ -173,7 +180,8 @@ def create_qualtrics_credentials(args):
     
 #remove NaN values from entire survey    
 def no_nan(survey_df):
-    survey_df = survey_df.dropna(survey_df)
+    c = survey_df.columns[18:217]
+    survey_df = survey_df.dropna(subset=c, how='any')
     return survey_df
 
 #remove test response from 'status' column

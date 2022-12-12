@@ -16,7 +16,6 @@ import datetime
 import os
 # NOTE: consider renaming to DCSC_final_project or DCSCfinalproject so that you can import normally
 secrets = __import__("DCSC-Final-Project.secrets")
-from minio import Minio
 
 # import jsonpickle
 # import base64
@@ -81,26 +80,6 @@ def getsurvey():
 
 # print(data.decode("utf-8"))
 
-#
-#    #print the list of surveys in qualtrics so user can copy paste into cleansurvey
-#     # log_debug('in separate method')
-#     # data = json.loads(request.data.decode('utf-8'))
-#     # mp3 = base64.b64decode(data['mp3'])
-#     # songhash=hashlib.sha256(mp3)
-#     # digest = songhash.hexdigest()
-#     # print(digest)
-#     # songbytes= io.BytesIO(mp3)
-#     # length = len(mp3)
-#     # print('about to call put-object')
-#     # minioclient.put_object(bucketname, digest, songbytes, length=length)
-#     # print('put object successful, about to call redis lpush')
-#     # redisClient.lpush('toWorker', digest)
-#     # print('redis successful')
-#     # response= {'hash' : digest,
-#     #         'reason' : 'Song in queue for separation'}
-#     # log_debug(response['hash']+ '.' + response['reason'])
-#     # response_pickled = jsonpickle.encode(response)
-#     # return response_pickled
 
 
 # @app.route('/apiv1/cleansurvey/', methods=['POST'])
@@ -123,13 +102,6 @@ def getsurvey():
 #     # # log_info('queue info') fix later
 #     # return response_pickled
 
-
-# @app.route('/apiv1/track/<string:songhash>/<int:track>', methods=['GET'])
-# def track(songhash, track): # progress logs
-#   #checks minio
-#     response={'track': track,
-#             'songhash': songhash}
-#     return response
 
 get_survey_args = ['datacenter', 'token', 'directory_id']
 
@@ -188,10 +160,8 @@ def cleanSurvey(survey_id):
     for method in cleaning_methods:
         if method == 'no_nan':
             survey_df = no_nan(survey_df)
-            continue
         elif method == 'no_test':
             survey_df = no_test(survey_df)
-            continue
         elif method == 'tidy_demo':
             survey_df = tidy_demo(survey_df)
         elif method == 'simple_summary':

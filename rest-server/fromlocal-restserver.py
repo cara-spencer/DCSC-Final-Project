@@ -6,7 +6,7 @@ import sys
 
 sys.path.append('../DCSC-Final-Project')
 
-from flask import Flask, request, send_file
+from flask import Flask, request, send_file, jsonify
 import pymongo as pymagno
 from bson import ObjectId
 from bson.binary import Binary
@@ -60,7 +60,7 @@ def cleanSurvey():
     try:
         data = request.files['data']
     except Exception as e:
-        "You must supply the form in the 'data' parameter of the body.", 400
+        return "You must supply the form in the 'data' parameter of the body.", 400
 
     try:
         survey_df = pd.read_csv(data)
@@ -101,6 +101,7 @@ def cleanSurvey():
         return {"mongo_document_id": str(mongo_result.inserted_id)}
 
 
+##Get cleaned survey back from MongoDB
 @app.route('/retrieveMDBSurvey/<string:mongo_document_id>', methods=['GET'])
 def retrieveMDBSurvey(mongo_document_id):
     # Read MongoDB through pymongo API to retrieve cleaned survey
@@ -108,27 +109,29 @@ def retrieveMDBSurvey(mongo_document_id):
 
     # retrieve file from MongoDB and write to a BytesIO object to prepare for sending file to client.
     ret_bytes = BytesIO()
-    ret_bytes.write(mongo_doc['survey_csv']) #might need encoding='utf-8'
+    ret_bytes.write(mongo_doc['survey_csv'])  # might need encoding='utf-8'
     ret_bytes.seek(0)
 
     # Send file to client
     return send_file(ret_bytes, download_name='cleaned_survey.csv', mimetype='text/csv')
 
 
+##Get a summary of metadata from file
 @app.route('/simpleSummary', methods=['POST'])
 def simpleSummary():
-    # Validate.
-    args = request.args
-    args = args.to_dict()
-    if len(args) != 1:
-        return 'Missing Argument', 400
-
     # import local version of survey results
-    data = request.data
+    try:
+        data = request.files['data']
+        print("Successfully requested the data")
+    except Exception as e:
+        return jsonify(error=str(e)), 400
+
     try:
         survey_df = pd.read_csv(data)
     except Exception as e:
-        return "Can't read as CSV", 400
+        return "Can't read as csv", 400
+
+    print(survey_df.head())
 
     return simple_summary(survey_df)
 
@@ -160,11 +163,11 @@ def simple_summary(survey_df):
     daterange_last = survey_df['RecordedDate'].iloc[-1]  # last element
     response_n = len(survey_df.index)
     unfinished_n = (survey_df["Finished"] == 0).sum()
-    avgduration = pd.mean(survey_df["Duration (in seconds)"])
+    avgduration = (survey_df["Duration (in seconds)"]).mean
     return {"Date_Range": "{}:{}".format(daterange_first, daterange_last),
-          "Number_of_Response": response_n,
-          "Number_of_Unfinished_Responses": unfinished_n,
-          "Average_Response_Duration": avgduration}
+            "Number_of_Response": response_n,
+            "Number_of_Unfinished_Responses": unfinished_n,
+            "Average_Response_Duration": avgduration}
 
 
 print('Starting server...')

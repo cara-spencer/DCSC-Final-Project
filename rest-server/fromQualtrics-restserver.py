@@ -1,7 +1,4 @@
-# import json
-# from pickle import APPEND as app
-# from urllib import request
-# import base64
+
 import sys
 
 # setting path
@@ -12,17 +9,11 @@ from QualtricsAPI.Survey import Responses, Credentials
 import pymongo as pymagno
 from bson.binary import Binary
 import pandas as pd
-import datetime
-import os
+import http.client
+
 # NOTE: consider renaming to DCSC_final_project or DCSCfinalproject so that you can import normally
 secrets = __import__("DCSC-Final-Project.secrets")
 
-# import jsonpickle
-# import base64
-# import os
-# import os,sys
-# import hashlib
-# import io
 
 #all the creds in the git ignore
 
@@ -73,21 +64,19 @@ def getsurvey():
     df = r.get_questions(survey_id='SV_AFakeSurveyID')
     
 #### let's try this method: https://api.qualtrics.com/2c55b7ff8b0c7-list-surveys
-# import http.client
+conn = http.client.HTTPSConnection("sjc1.qualtrics.com")
 
-# conn = http.client.HTTPSConnection("sjc1.qualtrics.com")
+headers = {
+    'Content-Type': "application/json",
+    'X-API-TOKEN': "zI0snlFFi3ym5HCb8aiax8zPjfNr8CuP9Xo6CucZ"
+    }
 
-# headers = {
-#     'Content-Type': "application/json",
-#     'X-API-TOKEN': "zI0snlFFi3ym5HCb8aiax8zPjfNr8CuP9Xo6CucZ"
-#     }
+conn.request("GET", "/API/v3/surveys?offset=0", headers=headers)
 
-# conn.request("GET", "/API/v3/surveys?offset=0", headers=headers)
+res = conn.getresponse()
+data = res.read()
 
-# res = conn.getresponse()
-# data = res.read()
-
-# print(data.decode("utf-8"))
+print(data.decode("utf-8"))
 
 ##Clean survey method
 clean_survey_args = ['datacenter', 'token', 'directory_id', 'cleaning_methods']
@@ -214,5 +203,3 @@ get_mongo_collection()
 # start flask
 app.run(host="0.0.0.0", port=5000)
 
-# to test:
-# "localhost:5000/getSurvey?datacenter=ca1&token=123&directory_id=myid"
